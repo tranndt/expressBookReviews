@@ -3,6 +3,10 @@ let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
+const axios = require('axios');
+
+
+
 
 
 public_users.post("/register", (req,res) => {
@@ -24,74 +28,105 @@ public_users.post("/register", (req,res) => {
     return res.status(404).json({message: "Unable to register user."});
 });
 
-// Get the book list available in the shop
-// public_users.get('/',function (req, res) {
-//   //Write your code here
-//    return res.send(JSON.stringify(books,null,4));
-// });
+// Simulating async call to get books data
+const getBooks = () => {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve(books);
+        }, 1000); // Simulating a delay
+    });
+};
 
-public_users.get('/',function (req, res) {
+
     //Write your code here
-    let result = []
-    const title = req.params.title;
-    for (let isbn in books){
-      if (books[isbn]["title"] === title){
-          result.push({
-              isbn: isbn,
-              author: books[isbn]["author"],
-              reviews: books[isbn]["reviews"]
-          });
-      }
+// Get the list of books available in the shop
+public_users.get('/', async function (req, res) {
+    try {
+        const books = await getBooks();
+        return res.status(200).send(JSON.stringify(books, null, 4));
+    } catch (error) {
+        return res.status(500).json({message: "Error fetching books."});
     }
-    return res.send(JSON.stringify({booksbytitle:result},null,4));
-  });
+});
 
-// Get book details based on ISBN
-public_users.get('/isbn/:isbn',function (req, res) {
-  //Write your code here
-  const isbn = req.params.isbn;
-  return res.send(JSON.stringify(books[isbn],null,4));
- });
-  
-// Get book details based on author
-public_users.get('/author/:author',function (req, res) {
-  //Write your code here
-  let result = []
-  const author = req.params.author;
-  for (let isbn in books){
-    if (books[isbn]["author"] === author){
-        result.push({
-            isbn: isbn,
-            title: books[isbn]["title"],
-            reviews: books[isbn]["reviews"]
+// Async call using Promise
+const getBookByISBN = (isbn) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (books[isbn]) {
+                resolve(books[isbn]);
+            } else {
+                reject('Book not found');
+            }
+        }, 1000); // Simulating a delay
+    });
+};
+
+// Get book details based on ISBN using Promises with Axios
+public_users.get('/isbn/:isbn', function (req, res) {
+    const isbn = req.params.isbn;
+    getBookByISBN(isbn)
+        .then(book => {
+            res.status(200).send(JSON.stringify(book, null, 4));
+        })
+        .catch(error => {
+            res.status(500).json({message: "Error fetching book details."});
         });
+});
+  
+// Get book details based on Author
+public_users.get('/author/:author', async function (req, res) {
+    const author = req.params.author;
+    try {
+        const books = await getBooks();
+        let result = [];
+        for (let isbn in books) {
+            if (books[isbn]["author"] === author) {
+                result.push({
+                    isbn: isbn,
+                    title: books[isbn]["title"],
+                    reviews: books[isbn]["reviews"]
+                });
+            }
+        }
+        return res.status(200).send(JSON.stringify({booksbyauthor: result}, null, 4));
+    } catch (error) {
+        return res.status(500).json({message: "Error fetching books by author."});
     }
-  }
-  return res.send(JSON.stringify({booksbyauthor:result},null,4));
 });
 
 // Get all books based on title
-public_users.get('/title/:title',function (req, res) {
-  //Write your code here
-  let result = []
-  const title = req.params.title;
-  console.log(books[isbn]["title"],title)
-  for (let isbn in books){
-    if (books[isbn]["title"] === title){
-        result.push({
-            isbn: isbn,
-            author: books[isbn]["author"],
-            reviews: books[isbn]["reviews"]
-        });
+public_users.get('/title/:title', async function (req, res) {
+    const title = req.params.title;
+    try {
+        const books = await getBooks();
+        let result = [];
+        for (let isbn in books) {
+            if (books[isbn]["title"] === title) {
+                result.push({
+                    isbn: isbn,
+                    author: books[isbn]["author"],
+                    reviews: books[isbn]["reviews"]
+                });
+            }
+        }
+        return res.status(200).send(JSON.stringify({booksbytitle: result}, null, 4));
+    } catch (error) {
+        return res.status(500).json({message: "Error fetching books by title."});
     }
-  }
-  return res.send(JSON.stringify({booksbytitle:result},null,4));
 });
 
-//  Get book review
-public_users.get('/review/:isbn',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+// Get book review
+public_users.get('/review/:isbn', function (req, res) {
+    const isbn = req.params.isbn;
+    getBookByISBN(isbn)
+        .then(book => {
+            res.status(200).send(JSON.stringify(book.reviews, null, 4));
+        })
+        .catch(error => {
+            res.status(500).json({message: "Error fetching book reviews."});
+        });
 });
+
 
 module.exports.general = public_users;
